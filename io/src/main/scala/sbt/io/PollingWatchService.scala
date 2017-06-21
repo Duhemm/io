@@ -126,6 +126,7 @@ class PollingWatchService(delayMs: Long) extends WatchService { self =>
   private val events = new LinkedBlockingQueue[WatchKey]()
   private val keys = mutable.Buffer.empty[WatchKey]
 
+  pollingThread.setDaemon(true)
   pollingThread.start()
 
   override def pollEvents(): Map[JWatchKey, Seq[JWatchEvent[JPath]]] =
