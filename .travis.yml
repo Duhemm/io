@@ -1,17 +1,18 @@
-language: scala
-scala:
-   - 2.10.6
-   - 2.11.11
-   - 2.12.2
+env:
+   - SCALA_VERSION=2.10.6
+   - SCALA_VERSION=2.11.11
+   - SCALA_VERSION=2.12.2
 
 jdk:
   - oraclejdk8
 
+before_install:
+  - curl -Ls https://git.io/sbt > ~/bin/sbt && chmod 0755 ~/bin/sbt
+
 script:
-  - sbt test
-  - sbt "bench/run 3 3 2 10"
-  - sbt "bench/run 30 10 5 10"
-  - sbt "bench/run 50 20 10 100"
+  - ~/bin/sbt ++SCALA_VERSION test
+  - ~/bin/sbt ++SCALA_VERSION "bench/run 3 3 2 10"
+  - ~/bin/sbt ++SCALA_VERSION "bench/run 30 5 4 10"
 
 os:
   - linux
