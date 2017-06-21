@@ -7,12 +7,10 @@ jdk:
   - oraclejdk8
 
 before_install:
-  - curl -Ls https://git.io/sbt > ~/bin/sbt && chmod 0755 ~/bin/sbt
+  - curl -Ls https://git.io/sbt > ~/sbt && chmod 0755 ~/sbt
 
 script:
-  - ~/bin/sbt ++SCALA_VERSION test
-  - ~/bin/sbt ++SCALA_VERSION "bench/run 3 3 2 10"
-  - ~/bin/sbt ++SCALA_VERSION "bench/run 30 5 4 10"
+  - ~/sbt ++SCALA_VERSION test "bench/run 30 5 4 10"
 
 os:
   - linux
