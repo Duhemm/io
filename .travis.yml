@@ -6,3 +6,13 @@ scala:
 
 jdk:
   - oraclejdk8
+
+script:
+  - sbt test
+  - sbt "bench/run 3 3 2 10"
+  - sbt "bench/run 30 10 5 10"
+  - sbt "bench/run 50 20 10 100"
+
+os:
+  - linux
+  - osx

@@ -37,6 +37,13 @@ lazy val io = (project in file("io")).
     initialCommands in console += "\nimport sbt.io._, syntax._"
   )
 
+lazy val bench = (project in file("bench")).
+  settings(
+    commonSettings,
+    name := "bench",
+    publish := {}
+  ).dependsOn(io)
+
 def ifScala210Minus[T](x: T) = Def.setting(
   CrossVersion partialVersion scalaVersion.value collect { case (2, v) if v <= 10 => x }
 )
