@@ -16,11 +16,7 @@ matrix:
       language: scala
 
     - os: linux
-      jdk: oraclejdk7
-      language: scala
-
-    - os: linux
-      jdk: openjdk7
+      jdk: openjdk8
       language: scala
 
     - os: osx
