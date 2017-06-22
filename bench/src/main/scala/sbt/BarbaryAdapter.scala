@@ -42,20 +42,21 @@ object BarbaryWatchService {
 }
 class BarbaryWatchService(underlying: WatchService) extends io.WatchService {
   private val registered: Buffer[WatchKey] = Buffer.empty
+  private[watchservice] var watchables: Map[WatchKey, JPath] = Map.empty
 
   override def toString: String = underlying.toString
 
   override def close(): Unit = underlying.close()
 
   override def poll(timeoutMs: Long): JWatchKey =
-    new BarbaryWatchKey(underlying.poll(timeoutMs, TimeUnit.MILLISECONDS))
+    new BarbaryWatchKey(underlying.poll(timeoutMs, TimeUnit.MILLISECONDS), this)
 
   override def pollEvents(): Map[JWatchKey, Seq[JWatchEvent[JPath]]] = {
     registered.flatMap { k =>
       val events = k.pollEvents()
       if (events.isEmpty) None
       else {
-        val key = new BarbaryWatchKey(k)
+        val key = new BarbaryWatchKey(k, this)
         val evs = events.asScala.map(e => new BarbaryWatchEvent(e.asInstanceOf[WatchEvent[JPath]]))
         Some((key, evs))
       }
@@ -67,16 +68,13 @@ class BarbaryWatchService(underlying: WatchService) extends io.WatchService {
     val adaptedEvents: Array[WatchEvent.Kind[_]] = events.toArray.map(BarbaryWatchService.adaptEventKind)
     val rawKey = underlying.asInstanceOf[AbstractWatchService].register(watchableFile, adaptedEvents)
     registered += rawKey
-    BarbaryWatchKey.watchables += rawKey -> path
-    new BarbaryWatchKey(rawKey)
+    watchables += rawKey -> path
+    new BarbaryWatchKey(rawKey, this)
   }
 
 }
 
-object BarbaryWatchKey {
-  private[watchservice] var watchables: Map[WatchKey, JWatchable] = Map.empty
-}
-class BarbaryWatchKey(underlying: WatchKey) extends JWatchKey {
+class BarbaryWatchKey(underlying: WatchKey, service: BarbaryWatchService) extends JWatchKey {
   override def toString: String = underlying.toString
 
   override def cancel(): Unit = underlying.cancel()
@@ -95,7 +93,7 @@ class BarbaryWatchKey(underlying: WatchKey) extends JWatchKey {
 
   override def reset(): Boolean = underlying.reset()
 
-  override def watchable(): JWatchable = BarbaryWatchKey.watchables(underlying)
+  override def watchable(): JWatchable = service.watchables(underlying)
 }
 
 class BarbaryWatchEvent[T](underlying: WatchEvent[T]) extends JWatchEvent[JPath] {

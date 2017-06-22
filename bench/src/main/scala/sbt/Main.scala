@@ -19,12 +19,19 @@ object Main {
     val depth      = args.lift(2).map(_.toInt).getOrElse(defaultDepth)
     val iterations = args.lift(3).map(_.toInt).getOrElse(defaultIterations)
 
-    val services: Seq[() => WatchService] =
+    val platformDependent: Seq[() => WatchService] =
+      if (sys.props("os.name") == "Mac OS X")
+        Seq(() => BarbaryWatchService.newWatchService)
+      else
+        Seq.empty
+
+    val platformIndependent: Seq[() => WatchService] =
       Seq(
-        () => BarbaryWatchService.newWatchService,
         () => java.nio.file.FileSystems.getDefault.newWatchService,
         () => new PollingWatchService(500)
       )
+
+    val services = platformDependent ++ platformIndependent
 
     bench(services, files, dirs, depth, iterations)
   }
