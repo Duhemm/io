@@ -1,8 +1,3 @@
-env:
-   - SCALA_VERSION=2.10.6
-   - SCALA_VERSION=2.11.11
-   - SCALA_VERSION=2.12.2
-
 before_install:
   - curl -Ls https://git.io/sbt > ~/sbt && chmod 0755 ~/sbt
 
@@ -12,12 +7,41 @@ script:
 matrix:
   include:
     - os: linux
+      env: SCALA_VERSION=2.10.6
       jdk: oraclejdk8
       language: scala
 
     - os: linux
+      env: SCALA_VERSION=2.10.6
       jdk: openjdk8
       language: scala
 
     - os: osx
+      env: SCALA_VERSION=2.10.6
+
+    - os: linux
+      env: SCALA_VERSION=2.11.11
+      jdk: oraclejdk8
+      language: scala
+
+    - os: linux
+      env: SCALA_VERSION=2.11.11
+      jdk: openjdk8
+      language: scala
+
+    - os: osx
+      env: SCALA_VERSION=2.11.11
+
+    - os: linux
+      env: SCALA_VERSION=2.12.2
+      jdk: oraclejdk8
+      language: scala
+
+    - os: linux
+      env: SCALA_VERSION=2.12.2
+      jdk: openjdk8
+      language: scala
+
+    - os: osx
+      env: SCALA_VERSION=2.12.2
 
