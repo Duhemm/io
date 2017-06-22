@@ -9,6 +9,19 @@ before_install:
 script:
   - ~/sbt ++SCALA_VERSION test "bench/run 30 5 4 100"
 
-os:
-  - linux
-  - osx
+matrix:
+  include:
+    - os: linux
+      jdk: oraclejdk8
+      language: scala
+
+    - os: linux
+      jdk: oraclejdk7
+      language: scala
+
+    - os: linux
+      jdk: openjdk7
+      language: scala
+
+    - os: osx
+
