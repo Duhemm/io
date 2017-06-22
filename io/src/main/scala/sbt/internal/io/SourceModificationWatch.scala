@@ -26,7 +26,7 @@ private[sbt] object SourceModificationWatch {
 
       val newFiles = WatchState.getPaths(state.sources).toSet
       val previousFiles = state.registered.keySet
-      val hasModFiles = events.exists { case (path, kind) => newFiles.contains(path) && kind == ENTRY_MODIFY && !Files.isDirectory(path) }
+      val hasModFiles = events.exists { case (path, _) => newFiles.contains(path) && !Files.isDirectory(path) }
 
       if (events.isEmpty || (previousFiles == newFiles && !hasModFiles)) {
         if (terminationCondition) {

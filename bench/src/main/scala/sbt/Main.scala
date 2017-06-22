@@ -4,6 +4,8 @@ import sbt.io._, syntax._
 import sbt.internal.io.{ SourceModificationWatch, WatchState }
 import scala.collection.mutable.Buffer
 
+import com.barbarysoftware.watchservice.BarbaryWatchService
+
 object Main {
 
   def main(args: Array[String]): Unit = {
@@ -19,6 +21,7 @@ object Main {
 
     val services: Seq[() => WatchService] =
       Seq(
+        () => BarbaryWatchService.newWatchService,
         () => java.nio.file.FileSystems.getDefault.newWatchService,
         () => new PollingWatchService(500)
       )

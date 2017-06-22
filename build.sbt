@@ -17,6 +17,7 @@ lazy val ioRoot = (project in file(".")).
   aggregate(io).
   settings(
     inThisBuild(Seq(
+      cancelable in Global := true,
       git.baseVersion := baseVersion,
       bintrayPackage := "io",
       homepage := Some(url("https://github.com/sbt/io")),
@@ -41,7 +42,8 @@ lazy val bench = (project in file("bench")).
   settings(
     commonSettings,
     name := "bench",
-    publish := {}
+    publish := {},
+    libraryDependencies += "net.incongru.watchservice" % "barbary-watchservice" % "1.0"
   ).dependsOn(io)
 
 def ifScala210Minus[T](x: T) = Def.setting(
