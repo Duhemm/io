@@ -3,14 +3,11 @@ env:
    - SCALA_VERSION=2.11.11
    - SCALA_VERSION=2.12.2
 
-jdk:
-  - oraclejdk8
-
 before_install:
   - curl -Ls https://git.io/sbt > ~/sbt && chmod 0755 ~/sbt
 
 script:
-  - ~/sbt ++SCALA_VERSION test "bench/run 30 5 4 10"
+  - ~/sbt ++SCALA_VERSION test "bench/run 30 5 4 100"
 
 os:
   - linux
