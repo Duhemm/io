@@ -17,6 +17,9 @@ object WatchService {
     private var closed: Boolean = false
     private val registered: mutable.Buffer[WatchKey] = mutable.Buffer.empty
 
+    override def init(): Unit =
+      ()
+
     override def pollEvents(): Map[WatchKey, Seq[WatchEvent[JPath]]] =
       registered.flatMap { k =>
         val events = k.pollEvents()
@@ -41,6 +44,9 @@ object WatchService {
       closed = true
       service.close()
     }
+
+    override def toString(): String =
+      service.toString()
   }
 
 }
@@ -51,6 +57,14 @@ object WatchService {
  */
 trait WatchService {
 
+  /** Initializes the watchservice. */
+  def init(): Unit
+
+  /**
+   * Retrieves all the events and groups them by watch key.
+   * Does not wait if no event is available.
+   * @return The pending events.
+   */
   def pollEvents(): Map[WatchKey, Seq[WatchEvent[JPath]]]
 
   /**

@@ -2,7 +2,7 @@ before_install:
   - curl -Ls https://git.io/sbt > ~/sbt && chmod 0755 ~/sbt
 
 script:
-  - ~/sbt ++SCALA_VERSION test "bench/run 10 5 3 100"
+  - ~/sbt ++SCALA_VERSION test "bench/run 10 5 3 100" "benchOld/run 10 5 3 100"
 
 matrix:
   include:

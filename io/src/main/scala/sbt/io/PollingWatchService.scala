@@ -99,7 +99,7 @@ class PollingWatchService(delayMs: Long) extends WatchService { self =>
     private def registerEvent(ev: WatchEvent): Unit =
       ev.key.addEvent(ev)
 
-    private def findDifferences(): Unit = {
+    private[PollingWatchService] def findDifferences(): Unit = {
       val newState = State(collectTimes)
       val deletedFiles = previousState.files -- newState.files
       val createdFiles = newState.files -- previousState.files
@@ -121,13 +121,22 @@ class PollingWatchService(delayMs: Long) extends WatchService { self =>
     }
   }
 
+  private var initDone: Boolean = false
   private var closed: Boolean = false
   private val pollingThread = new PollingThread(delayMs)
   private val events = new LinkedBlockingQueue[WatchKey]()
   private val keys = mutable.Buffer.empty[WatchKey]
 
-  pollingThread.setDaemon(true)
-  pollingThread.start()
+  override def init(): Unit =
+    if (!initDone) {
+      initDone = true
+      // Here we'll detect all the files for the first time,
+      // issuing `ENTRY_CREATE` events. We can discard these events.
+      pollingThread.findDifferences()
+      pollEvents()
+      pollingThread.setDaemon(true)
+      pollingThread.start()
+    }
 
   override def pollEvents(): Map[JWatchKey, Seq[JWatchEvent[JPath]]] =
     keys.flatMap { k =>

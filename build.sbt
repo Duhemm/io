@@ -46,6 +46,14 @@ lazy val bench = (project in file("bench")).
     libraryDependencies += "net.incongru.watchservice" % "barbary-watchservice" % "1.0"
   ).dependsOn(io)
 
+lazy val benchOld = (project in file("bench-old")).
+  settings(
+    commonSettings,
+    name := "benchOld",
+    publish := {},
+    libraryDependencies += "org.scala-sbt" %% "io" % "1.0.0-M11"
+  )
+
 def ifScala210Minus[T](x: T) = Def.setting(
   CrossVersion partialVersion scalaVersion.value collect { case (2, v) if v <= 10 => x }
 )

@@ -120,7 +120,9 @@ private[sbt] object WatchState {
   /** An empty `WatchState`. */
   def empty(service: WatchService, sources: Seq[Source]): WatchState = {
     val initFiles = getPaths(sources)
-    new WatchState(0, sources, service, Map.empty) ++ initFiles
+    val initState = new WatchState(0, sources, service, Map.empty) ++ initFiles
+    service.init()
+    initState
   }
 
   private[sbt] def getPaths(sources: Seq[Source]): Seq[Path] =

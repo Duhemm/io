@@ -44,12 +44,18 @@ class BarbaryWatchService(underlying: WatchService) extends io.WatchService {
   private val registered: Buffer[WatchKey] = Buffer.empty
   private[watchservice] var watchables: Map[WatchKey, JPath] = Map.empty
 
+  override def init(): Unit =
+    ()
+
   override def toString: String = underlying.toString
 
   override def close(): Unit = underlying.close()
 
   override def poll(timeoutMs: Long): JWatchKey =
-    new BarbaryWatchKey(underlying.poll(timeoutMs, TimeUnit.MILLISECONDS), this)
+    Option(underlying.poll(timeoutMs, TimeUnit.MILLISECONDS)) match {
+      case None      => null
+      case Some(key) => new BarbaryWatchKey(key, this)
+    }
 
   override def pollEvents(): Map[JWatchKey, Seq[JWatchEvent[JPath]]] = {
     registered.flatMap { k =>
@@ -97,7 +103,6 @@ class BarbaryWatchKey(underlying: WatchKey, service: BarbaryWatchService) extend
 }
 
 class BarbaryWatchEvent[T](underlying: WatchEvent[T]) extends JWatchEvent[JPath] {
-  override def toString: String = underlying.toString
   def context(): JPath = {
     // HACK HACK HACK HACK HACK :)
     val p = underlying.context().asInstanceOf[File].toPath

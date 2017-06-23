@@ -4,8 +4,6 @@ import sbt.io._, syntax._
 import sbt.internal.io.{ SourceModificationWatch, WatchState }
 import scala.collection.mutable.Buffer
 
-import com.barbarysoftware.watchservice.BarbaryWatchService
-
 object Main {
 
   def main(args: Array[String]): Unit = {
@@ -19,26 +17,11 @@ object Main {
     val depth      = args.lift(2).map(_.toInt).getOrElse(defaultDepth)
     val iterations = args.lift(3).map(_.toInt).getOrElse(defaultIterations)
 
-    val platformDependent: Seq[() => WatchService] =
-      if (sys.props("os.name") == "Mac OS X")
-        Seq(() => BarbaryWatchService.newWatchService)
-      else
-        Seq.empty
-
-    val platformIndependent: Seq[() => WatchService] =
-      Seq(
-        () => java.nio.file.FileSystems.getDefault.newWatchService,
-        () => new PollingWatchService(500)
-      )
-
-    val services = platformDependent ++ platformIndependent
-
-    bench(services, files, dirs, depth, iterations)
+    bench(files, dirs, depth, iterations)
   }
 
   /** Benchmarks all of `services` on a generated hierarchy. */
-  private def bench(services: Seq[() => WatchService],
-                    files: Int,
+  private def bench(files: Int,
                     dirs: Int,
                     depth: Int,
                     iterations: Int): Unit = IO.withTemporaryDirectory { base =>
@@ -53,34 +36,31 @@ object Main {
                | - iterations = $iterations
                |""".stripMargin)
 
-    services.foreach { getService =>
-      val service = getService()
-      val timesMs = bench(base, iterations, service)
+    val timesMs = bench(base, iterations)
 
-      val sortedMs   = timesMs.sorted
-      val minMs      = sortedMs.head
-      val maxMs      = sortedMs.last
-      val avgMs      = average(timesMs)
-      val medianMs   = percentile(50, sortedMs)
-      val p95Ms      = percentile(95, sortedMs)
-      val p05Ms      = percentile(5, sortedMs)
-      val stddevMs =
-        Math.sqrt(timesMs.map(t => Math.pow(t - avgMs, 2) / iterations).sum)
-      val avgBetweenP05AndP95 =
-        average(timesMs filter (t => t >= p05Ms && t <= p95Ms))
+    val sortedMs   = timesMs.sorted
+    val minMs      = sortedMs.head
+    val maxMs      = sortedMs.last
+    val avgMs      = average(timesMs)
+    val medianMs   = percentile(50, sortedMs)
+    val p95Ms      = percentile(95, sortedMs)
+    val p05Ms      = percentile(5, sortedMs)
+    val stddevMs =
+      Math.sqrt(timesMs.map(t => Math.pow(t - avgMs, 2) / iterations).sum)
+    val avgBetweenP05AndP95 =
+      average(timesMs filter (t => t >= p05Ms && t <= p95Ms))
 
-      println(s"""$service
-                 |${"-" * (service.toString.length)}
-                 | - minMs      = $minMs
-                 | - maxMs      = $maxMs
-                 | - avgMs      = $avgMs
-                 | - medianMs   = $medianMs
-                 | - stddevMs   = $stddevMs
-                 | - p95Ms      = $p95Ms
-                 | - p05Ms      = $p05Ms
-                 | - avg        = $avgBetweenP05AndP95
-                 |""".stripMargin)
-    }
+    println(s"""old sbt file watch
+               |------------------
+               | - minMs      = $minMs
+               | - maxMs      = $maxMs
+               | - avgMs      = $avgMs
+               | - medianMs   = $medianMs
+               | - stddevMs   = $stddevMs
+               | - p95Ms      = $p95Ms
+               | - p05Ms      = $p05Ms
+               | - avg        = $avgBetweenP05AndP95
+               |""".stripMargin)
   }
 
   /**
@@ -88,30 +68,26 @@ object Main {
    *  Returns the number of milliseconds elapsed to detect
    *  changes at each iteration.
    */
-  private def bench(base: File, iterations: Int, service: WatchService): Seq[Double] = {
-    val sources: Seq[WatchState.Source] =
-      Seq((base, AllPassFilter, NothingFilter))
-
+  private def bench(base: File, iterations: Int): Seq[Double] = {
+    val pathFinder    = base.allPaths
     val modifier      = new Modifier(base, iterations)
-    var state         = WatchState.empty(service, sources)
+    var state         = WatchState.empty
     val detectedTimes = Buffer.empty[Long]
 
-    val (_, st) = SourceModificationWatch.watch(100L, state)(false)
+    val (_, st) = SourceModificationWatch.watch(pathFinder, 100, state)(false)
     state = st
 
     modifier.setDaemon(true)
     modifier.start()
 
     while (!modifier.done) {
-      val (triggered, newState) = SourceModificationWatch.watch(100L, state)(false)
+      val (triggered, newState) = SourceModificationWatch.watch(pathFinder, 100, state)(false)
 
       detectedTimes += System.currentTimeMillis()
       assert(triggered)
       state = newState
       synchronized { notify(); wait() }
     }
-
-    service.close()
 
     detectedTimes.zip(modifier.modifiedTimes).map {
       case (d, m) => (d - m).toDouble
