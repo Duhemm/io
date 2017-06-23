@@ -125,7 +125,7 @@ class PollingWatchService(delayMs: Long) extends WatchService { self =>
   private var closed: Boolean = false
   private val pollingThread = new PollingThread(delayMs)
   private val events = new LinkedBlockingQueue[WatchKey]()
-  private val keys = mutable.Buffer.empty[WatchKey]
+  private val keys = mutable.Set.empty[WatchKey]
 
   override def init(): Unit =
     if (!initDone) {
