@@ -1,6 +1,6 @@
 package sbt.internal.io
 
-import sbt.io.BetterPollingService
+import sbt.io.BetterPollingWatchService
 
 class BetterPollingWatchServiceSpec extends SourceModificationWatchSpec(new BetterPollingWatchService(500))
 
