@@ -28,7 +28,7 @@ object Main {
     val platformIndependent: Seq[() => WatchService] =
       Seq(
         () => java.nio.file.FileSystems.getDefault.newWatchService,
-        () => new BetterPollingWatchService(100)
+        () => new PollingWatchService(100)
       )
 
     val services = platformDependent ++ platformIndependent
