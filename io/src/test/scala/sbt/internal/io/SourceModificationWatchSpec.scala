@@ -7,7 +7,7 @@ import org.scalatest.{ FlatSpec, Matchers }
 import sbt.io.syntax._
 import sbt.io.{ HiddenFileFilter, IO, WatchService }
 
-abstract class SourceModificationWatchSpec(getService: => WatchService) extends FlatSpec with Matchers {
+abstract class SourceModificationWatchSpec(getService: => WatchService, pollDelayMs: Long, maxWaitMs: Long) extends FlatSpec with Matchers {
 
   it should "watch a directory for file creation" in IO.withTemporaryDirectory { dir =>
     val parentDir = dir / "src" / "watchme"
@@ -15,8 +15,30 @@ abstract class SourceModificationWatchSpec(getService: => WatchService) extends 
 
     IO.createDirectory(parentDir)
 
-    watchTest(parentDir)(200L, 15000L) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
       IO.write(created, "foo")
+    }
+  }
+
+  it should "ignore creation of files that do not match inclusion filter" in IO.withTemporaryDirectory { dir =>
+    val parentDir = dir / "src" / "watchme"
+    val created = parentDir / "ignoreme"
+
+    IO.createDirectory(parentDir)
+
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
+      IO.touch(created)
+    }
+  }
+
+  it should "ignore creation of files that are explicitly ignored" in IO.withTemporaryDirectory { dir =>
+    val parentDir = dir / "src" / "watchme"
+    val created = parentDir / ".hidden.scala"
+
+    IO.createDirectory(parentDir)
+
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
+      IO.touch(created)
     }
   }
 
@@ -26,7 +48,7 @@ abstract class SourceModificationWatchSpec(getService: => WatchService) extends 
 
     IO.createDirectory(parentDir)
 
-    watchTest(parentDir)(200L, 15000L) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
       IO.createDirectory(created)
     }
   }
@@ -38,8 +60,32 @@ abstract class SourceModificationWatchSpec(getService: => WatchService) extends 
 
     IO.createDirectory(subDir)
 
-    watchTest(parentDir)(200L, 15000L) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
       IO.write(created, "foo")
+    }
+  }
+
+  it should "ignore creation of files not included in inclusion filter in subdirectories" in IO.withTemporaryDirectory { dir =>
+    val parentDir = dir / "src" / "watchme"
+    val subDir = parentDir / "sub"
+    val created = subDir / "ignoreme"
+
+    IO.createDirectory(subDir)
+
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
+      IO.touch(created)
+    }
+  }
+
+  it should "ignore creation of files explicitly ignored in subdirectories" in IO.withTemporaryDirectory { dir =>
+    val parentDir = dir / "src" / "watchme"
+    val subDir = parentDir / "sub"
+    val created = subDir / ".hidden.scala"
+
+    IO.createDirectory(subDir)
+
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
+      IO.touch(created)
     }
   }
 
@@ -50,7 +96,7 @@ abstract class SourceModificationWatchSpec(getService: => WatchService) extends 
 
     IO.createDirectory(subDir)
 
-    watchTest(parentDir)(200L, 15000L) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
       IO.createDirectory(created)
     }
   }
@@ -60,7 +106,27 @@ abstract class SourceModificationWatchSpec(getService: => WatchService) extends 
     val file = parentDir / "WillBeDeleted.scala"
     IO.write(file, "foo")
 
-    watchTest(parentDir)(200L, 15000L) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
+      IO.delete(file)
+    }
+  }
+
+  it should "ignore deletion of files not included in inclusion filter" in IO.withTemporaryDirectory { dir =>
+    val parentDir = dir / "src" / "watchme"
+    val file = parentDir / "ignoreme"
+    IO.write(file, "foo")
+
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
+      IO.delete(file)
+    }
+  }
+
+  it should "ignore deletion of files explicitly ignored" in IO.withTemporaryDirectory { dir =>
+    val parentDir = dir / "src" / "watchme"
+    val file = parentDir / ".hidden.scala"
+    IO.write(file, "foo")
+
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
       IO.delete(file)
     }
   }
@@ -70,7 +136,7 @@ abstract class SourceModificationWatchSpec(getService: => WatchService) extends 
     val subDir = parentDir / "willBeDeleted"
     IO.createDirectory(subDir)
 
-    watchTest(parentDir)(200L, 15000L) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
       IO.delete(subDir)
     }
   }
@@ -81,7 +147,29 @@ abstract class SourceModificationWatchSpec(getService: => WatchService) extends 
     val willBeDeleted = subDir / "WillBeDeleted.scala"
     IO.write(willBeDeleted, "foo")
 
-    watchTest(parentDir)(200L, 15000L) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
+      IO.delete(willBeDeleted)
+    }
+  }
+
+  it should "ignore deletion of files not included in inclusion filter in subdirectories" in IO.withTemporaryDirectory { dir =>
+    val parentDir = dir / "src" / "watchme"
+    val subDir = parentDir / "subdir"
+    val willBeDeleted = subDir / "ignoreme"
+    IO.write(willBeDeleted, "foo")
+
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
+      IO.delete(willBeDeleted)
+    }
+  }
+
+  it should "ignore deletion of files explicitly ignored in subdirectories" in IO.withTemporaryDirectory { dir =>
+    val parentDir = dir / "src" / "watchme"
+    val subDir = parentDir / "subdir"
+    val willBeDeleted = subDir / ".hidden.scala"
+    IO.write(willBeDeleted, "foo")
+
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
       IO.delete(willBeDeleted)
     }
   }
@@ -92,7 +180,7 @@ abstract class SourceModificationWatchSpec(getService: => WatchService) extends 
     val willBeDeleted = subDir / "willBeDeleted"
     IO.createDirectory(willBeDeleted)
 
-    watchTest(parentDir)(200L, 15000L) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
       IO.delete(willBeDeleted)
     }
   }
@@ -115,10 +203,11 @@ abstract class SourceModificationWatchSpec(getService: => WatchService) extends 
     service.close()
   }
 
-  private def watchTest(base: File)(pollDelayMs: Long, maxWaitMs: Long)(modifier: => Unit) = {
+  private def watchTest(base: File)(pollDelayMs: Long, maxWaitMs: Long, expectedTrigger: Boolean = true)(modifier: => Unit) = {
     val service = getService
     try {
       val sources: Seq[WatchState.Source] = Seq((base, "*.scala", HiddenFileFilter))
+      // Set count to 1, because first run always immediately triggers.
       val initState = WatchState.empty(service, sources).withCount(1)
       val started = new AtomicBoolean(false)
       val startTime = System.currentTimeMillis()
@@ -132,7 +221,7 @@ abstract class SourceModificationWatchSpec(getService: => WatchService) extends 
         if (!started.get()) modThread.start()
         System.currentTimeMillis() - startTime > maxWaitMs
       }
-      triggered shouldBe true
+      triggered shouldBe expectedTrigger
     } finally service.close()
   }
 
