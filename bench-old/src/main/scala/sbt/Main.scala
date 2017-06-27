@@ -48,7 +48,7 @@ object Main {
     IO.createDirectory(generatedHierarchyBase)
     genHierarchy(generatedHierarchyBase, files, dirs, depth)
     println("Done!")
-    println(s"Will run $iterations of each benchmark.")
+    println(s"Will run $iterations iterations of each benchmark.")
 
     val allBases = generatedHierarchyBase +: reposBases
 
@@ -68,7 +68,7 @@ object Main {
       val avgBetweenP05AndP95 =
         average(timesMs filter (t => t >= p05Ms && t <= p95Ms))
 
-      val title = s"old sbt file watch in $base"
+      val title = s"old sbt file watch in ${base.getName}"
 
       println(s"""$title
                  |${"-" * title.length}
