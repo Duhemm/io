@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import org.scalatest.{ FlatSpec, Matchers }
 import sbt.io.syntax._
-import sbt.io.{ HiddenFileFilter, IO, WatchService }
+import sbt.io.{ IO, SimpleFilter, WatchService }
 
 abstract class SourceModificationWatchSpec(getService: => WatchService, pollDelayMs: Long, maxWaitMs: Long) extends FlatSpec with Matchers {
 
@@ -206,7 +206,7 @@ abstract class SourceModificationWatchSpec(getService: => WatchService, pollDela
   private def watchTest(base: File)(pollDelayMs: Long, maxWaitMs: Long, expectedTrigger: Boolean = true)(modifier: => Unit) = {
     val service = getService
     try {
-      val sources: Seq[WatchState.Source] = Seq((base, "*.scala", HiddenFileFilter))
+      val sources: Seq[WatchState.Source] = Seq((base, "*.scala", new SimpleFilter(_.startsWith("."))))
       // Set count to 1, because first run always immediately triggers.
       val initState = WatchState.empty(service, sources).withCount(1)
       val started = new AtomicBoolean(false)
