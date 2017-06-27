@@ -19,6 +19,12 @@ object Main {
     val depth      = args.lift(2).map(_.toInt).getOrElse(defaultDepth)
     val iterations = args.lift(3).map(_.toInt).getOrElse(defaultIterations)
 
+    val repos = Seq(
+      ("scala/scala", "2.12.x"),
+      ("akka/akka", "master"),
+      ("apache/spark", "master")
+    )
+
     val platformDependent: Seq[() => WatchService] =
       if (sys.props("os.name") == "Mac OS X")
         Seq(() => BarbaryWatchService.newWatchService)
@@ -33,27 +39,39 @@ object Main {
 
     val services = platformDependent ++ platformIndependent
 
-    bench(services, files, dirs, depth, iterations)
+    bench(services, repos, files, dirs, depth, iterations)
   }
 
-  /** Benchmarks all of `services` on a generated hierarchy. */
+  /** Benchmarks all of `services` on a generated hierarchy and predefined repos. */
   private def bench(services: Seq[() => WatchService],
+                    repos: Seq[(String, String)],
                     files: Int,
                     dirs: Int,
                     depth: Int,
                     iterations: Int): Unit = IO.withTemporaryDirectory { base =>
 
-    genHierarchy(base, files, dirs, depth)
+    println("Cloning all repos...")
+    val reposBases = repos.map {
+      case (name, rev) =>
+        val uri = s"https://github.com/$name.git"
+        val repoBase = base / name
+        clone(uri, rev, repoBase)
+        repoBase
+    }
 
-    println(s"""Results
-               |=======
-               | - files      = $files
-               | - dirs       = $dirs
-               | - depth      = $depth
-               | - iterations = $iterations
-               |""".stripMargin)
+    println(s"Generating a hierarchy of depth = $depth, each level has $dirs dirs, $files files.")
 
-    services.foreach { getService =>
+    val generatedHierarchyBase = base / "generated"
+    IO.createDirectory(generatedHierarchyBase)
+    genHierarchy(generatedHierarchyBase, files, dirs, depth)
+    println("Done!")
+    println(s"Will run $iterations of each benchmark.")
+
+    val allBases = generatedHierarchyBase +: reposBases
+
+    for { getService <- services;
+          base       <- allBases } {
+
       val service = getService()
       val timesMs = bench(base, iterations, service)
 
@@ -69,8 +87,9 @@ object Main {
       val avgBetweenP05AndP95 =
         average(timesMs filter (t => t >= p05Ms && t <= p95Ms))
 
-      println(s"""$service
-                 |${"-" * (service.toString.length)}
+      val title = s"$service in $base"
+      println(s"""$title
+                 |${"-" * (title.length)}
                  | - minMs      = $minMs
                  | - maxMs      = $maxMs
                  | - avgMs      = $avgMs
@@ -78,7 +97,7 @@ object Main {
                  | - stddevMs   = $stddevMs
                  | - p95Ms      = $p95Ms
                  | - p05Ms      = $p05Ms
-                 | - avg        = $avgBetweenP05AndP95
+                 | - avgMs      = $avgBetweenP05AndP95
                  |""".stripMargin)
     }
   }
@@ -95,6 +114,8 @@ object Main {
     val modifier      = new Modifier(base, iterations)
     var state         = WatchState.empty(service, sources)
     val detectedTimes = Buffer.empty[Long]
+
+    println(s"Benchmarking $service in $base.")
 
     val (_, st) = SourceModificationWatch.watch(100L, state)(false)
     state = st
@@ -116,6 +137,24 @@ object Main {
     detectedTimes.zip(modifier.modifiedTimes).map {
       case (d, m) => (d - m).toDouble
     }
+  }
+
+  private def clone(uri: String, revision: String, target: File): Unit = {
+    import org.eclipse.jgit.api._
+
+    print(s"Cloning $uri ($revision) to $target... ")
+
+    IO.createDirectory(target)
+
+    new CloneCommand()
+      .setDirectory(target)
+      .setURI(uri)
+      .call()
+
+    val git = Git.open(target)
+    git.checkout().setName(revision).call()
+
+    println("Done!")
   }
 
   private def genHierarchy(base: File, files: Int, dirs: Int, depth: Int): Unit =

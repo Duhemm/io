@@ -17,50 +17,71 @@ object Main {
     val depth      = args.lift(2).map(_.toInt).getOrElse(defaultDepth)
     val iterations = args.lift(3).map(_.toInt).getOrElse(defaultIterations)
 
-    bench(files, dirs, depth, iterations)
+    val repos = Seq(
+      ("scala/scala", "2.12.x"),
+      ("akka/akka", "master"),
+      ("apache/spark", "master")
+    )
+
+    bench(files, repos, dirs, depth, iterations)
   }
 
   /** Benchmarks all of `services` on a generated hierarchy. */
   private def bench(files: Int,
+                    repos: Seq[(String, String)],
                     dirs: Int,
                     depth: Int,
                     iterations: Int): Unit = IO.withTemporaryDirectory { base =>
 
-    genHierarchy(base, files, dirs, depth)
+    println("Cloning all repos...")
+    val reposBases = repos.map {
+      case (name, rev) =>
+        val uri = s"https://github.com/$name.git"
+        val repoBase = base / name
+        clone(uri, rev, repoBase)
+        repoBase
+    }
 
-    println(s"""Results
-               |=======
-               | - files      = $files
-               | - dirs       = $dirs
-               | - depth      = $depth
-               | - iterations = $iterations
-               |""".stripMargin)
+    println(s"Generating a hierarchy of depth = $depth, each level has $dirs dirs, $files files.")
 
-    val timesMs = bench(base, iterations)
+    val generatedHierarchyBase = base / "generated"
+    IO.createDirectory(generatedHierarchyBase)
+    genHierarchy(generatedHierarchyBase, files, dirs, depth)
+    println("Done!")
+    println(s"Will run $iterations of each benchmark.")
 
-    val sortedMs   = timesMs.sorted
-    val minMs      = sortedMs.head
-    val maxMs      = sortedMs.last
-    val avgMs      = average(timesMs)
-    val medianMs   = percentile(50, sortedMs)
-    val p95Ms      = percentile(95, sortedMs)
-    val p05Ms      = percentile(5, sortedMs)
-    val stddevMs =
-      Math.sqrt(timesMs.map(t => Math.pow(t - avgMs, 2) / iterations).sum)
-    val avgBetweenP05AndP95 =
-      average(timesMs filter (t => t >= p05Ms && t <= p95Ms))
+    val allBases = generatedHierarchyBase +: reposBases
 
-    println(s"""old sbt file watch
-               |------------------
-               | - minMs      = $minMs
-               | - maxMs      = $maxMs
-               | - avgMs      = $avgMs
-               | - medianMs   = $medianMs
-               | - stddevMs   = $stddevMs
-               | - p95Ms      = $p95Ms
-               | - p05Ms      = $p05Ms
-               | - avg        = $avgBetweenP05AndP95
-               |""".stripMargin)
+    allBases.foreach { base =>
+
+      val timesMs = bench(base, iterations)
+
+      val sortedMs   = timesMs.sorted
+      val minMs      = sortedMs.head
+      val maxMs      = sortedMs.last
+      val avgMs      = average(timesMs)
+      val medianMs   = percentile(50, sortedMs)
+      val p95Ms      = percentile(95, sortedMs)
+      val p05Ms      = percentile(5, sortedMs)
+      val stddevMs =
+        Math.sqrt(timesMs.map(t => Math.pow(t - avgMs, 2) / iterations).sum)
+      val avgBetweenP05AndP95 =
+        average(timesMs filter (t => t >= p05Ms && t <= p95Ms))
+
+      val title = s"old sbt file watch in $base"
+
+      println(s"""$title
+                 |${"-" * title.length}
+                 | - minMs      = $minMs
+                 | - maxMs      = $maxMs
+                 | - avgMs      = $avgMs
+                 | - medianMs   = $medianMs
+                 | - stddevMs   = $stddevMs
+                 | - p95Ms      = $p95Ms
+                 | - p05Ms      = $p05Ms
+                 | - avgMs      = $avgBetweenP05AndP95
+                 |""".stripMargin)
+    }
   }
 
   /**
@@ -92,6 +113,24 @@ object Main {
     detectedTimes.zip(modifier.modifiedTimes).map {
       case (d, m) => (d - m).toDouble
     }
+  }
+
+  private def clone(uri: String, revision: String, target: File): Unit = {
+    import org.eclipse.jgit.api._
+
+    print(s"Cloning $uri ($revision) to $target... ")
+
+    IO.createDirectory(target)
+
+    new CloneCommand()
+      .setDirectory(target)
+      .setURI(uri)
+      .call()
+
+    val git = Git.open(target)
+    git.checkout().setName(revision).call()
+
+    println("Done!")
   }
 
   private def genHierarchy(base: File, files: Int, dirs: Int, depth: Int): Unit =

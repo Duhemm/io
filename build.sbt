@@ -43,7 +43,8 @@ lazy val bench = (project in file("bench")).
     commonSettings,
     name := "bench",
     publish := {},
-    libraryDependencies += "net.incongru.watchservice" % "barbary-watchservice" % "1.0"
+    libraryDependencies += "net.incongru.watchservice" % "barbary-watchservice" % "1.0",
+    libraryDependencies += "org.eclipse.jgit" % "org.eclipse.jgit.pgm" % "3.2.0.201312181205-r"
   ).dependsOn(io)
 
 lazy val benchOld = (project in file("bench-old")).
@@ -51,7 +52,8 @@ lazy val benchOld = (project in file("bench-old")).
     commonSettings,
     name := "benchOld",
     publish := {},
-    libraryDependencies += "org.scala-sbt" %% "io" % "1.0.0-M11"
+    libraryDependencies += "org.scala-sbt" %% "io" % "1.0.0-M11",
+    libraryDependencies += "org.eclipse.jgit" % "org.eclipse.jgit.pgm" % "3.2.0.201312181205-r"
   )
 
 def ifScala210Minus[T](x: T) = Def.setting(
