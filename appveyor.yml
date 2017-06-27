@@ -5,4 +5,4 @@ install:
   - cmd: SET PATH=C:\sbt\bin;%JAVA_HOME%\bin;%PATH%
   - cmd: SET SBT_OPTS=-XX:MaxPermSize=2g -Xmx4g
 build_script:
-  - sbt "bench/run 10 5 3 100" "benchOld/run 10 5 3 100"
+  - sbt "bench/run 10 10 5 100" "benchOld/run 10 10 5 100"
