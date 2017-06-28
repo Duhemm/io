@@ -20,6 +20,17 @@ abstract class SourceModificationWatchSpec(getService: => WatchService, pollDela
     }
   }
 
+  it should "ignore creation of directories with no tracked sources" in IO.withTemporaryDirectory { dir =>
+    val parentDir = dir / "src" / "watchme"
+    val created = parentDir / "ignoreme"
+
+    IO.createDirectory(parentDir)
+
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
+      IO.createDirectory(created)
+    }
+  }
+
   it should "ignore creation of files that do not match inclusion filter" in IO.withTemporaryDirectory { dir =>
     val parentDir = dir / "src" / "watchme"
     val created = parentDir / "ignoreme"
@@ -42,13 +53,13 @@ abstract class SourceModificationWatchSpec(getService: => WatchService, pollDela
     }
   }
 
-  it should "watch a directory for directory creation" in IO.withTemporaryDirectory { dir =>
+  it should "ignore creation of an empty directory" in IO.withTemporaryDirectory { dir =>
     val parentDir = dir / "src" / "watchme"
-    val created = parentDir / "newDirectory"
+    val created = parentDir / "ignoreme"
 
     IO.createDirectory(parentDir)
 
-    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
       IO.createDirectory(created)
     }
   }
@@ -89,14 +100,14 @@ abstract class SourceModificationWatchSpec(getService: => WatchService, pollDela
     }
   }
 
-  it should "detect directories created in a subdirectory" in IO.withTemporaryDirectory { dir =>
+  it should "ignore creation of empty directories in a subdirectory" in IO.withTemporaryDirectory { dir =>
     val parentDir = dir / "src" / "watchme"
     val subDir = parentDir / "sub"
-    val created = subDir / "willBeCreated"
+    val created = subDir / "ignoreme"
 
     IO.createDirectory(subDir)
 
-    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
       IO.createDirectory(created)
     }
   }
@@ -131,12 +142,12 @@ abstract class SourceModificationWatchSpec(getService: => WatchService, pollDela
     }
   }
 
-  it should "detect deleted directories" in IO.withTemporaryDirectory { dir =>
+  it should "ignore deletion of empty directories" in IO.withTemporaryDirectory { dir =>
     val parentDir = dir / "src" / "watchme"
-    val subDir = parentDir / "willBeDeleted"
+    val subDir = parentDir / "ignoreme"
     IO.createDirectory(subDir)
 
-    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
       IO.delete(subDir)
     }
   }
@@ -174,13 +185,13 @@ abstract class SourceModificationWatchSpec(getService: => WatchService, pollDela
     }
   }
 
-  it should "detect deleted directories in subdirectories" in IO.withTemporaryDirectory { dir =>
+  it should "ignore deletion of empty directories in subdirectories" in IO.withTemporaryDirectory { dir =>
     val parentDir = dir / "src" / "watchme"
     val subDir = parentDir / "subdir"
-    val willBeDeleted = subDir / "willBeDeleted"
+    val willBeDeleted = subDir / "ignoreme"
     IO.createDirectory(willBeDeleted)
 
-    watchTest(parentDir)(pollDelayMs, maxWaitMs) {
+    watchTest(parentDir)(pollDelayMs, maxWaitMs, expectedTrigger = false) {
       IO.delete(willBeDeleted)
     }
   }

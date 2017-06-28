@@ -22,7 +22,11 @@ private[sbt] object SourceModificationWatch {
     if (state.count == 0) (true, state.withCount(1))
     else {
       val events =
-        state.next(delayMillis).map(expandEvent)
+        state.next(delayMillis).map(expandEvent).filter {
+          case (p, ENTRY_CREATE) => !Files.isDirectory(p)
+          case (p, ENTRY_DELETE) => state.sources.exists(_._2.accept(p.toFile))
+          case (p, _)            => state.registered.contains(p)
+        }
 
       val newFiles = WatchState.getPaths(state.sources).toSet
       val previousFiles = state.registered.keySet
