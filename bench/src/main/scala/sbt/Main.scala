@@ -1,7 +1,7 @@
 package sbt
 
 import sbt.io._, syntax._
-import sbt.internal.io.{ SourceModificationWatch, WatchState }
+import sbt.internal.io.{ Source, SourceModificationWatch, WatchState }
 import scala.collection.mutable.Buffer
 
 import com.barbarysoftware.watchservice.BarbaryWatchService
@@ -108,8 +108,8 @@ object Main {
    *  changes at each iteration.
    */
   private def bench(base: File, iterations: Int, service: WatchService): Seq[Double] = {
-    val sources: Seq[WatchState.Source] =
-      Seq((base, AllPassFilter, NothingFilter))
+    val sources: Seq[Source] =
+      Seq(new Source(base, AllPassFilter, NothingFilter))
 
     val modifier      = new Modifier(base, iterations)
     var state         = WatchState.empty(service, sources)
