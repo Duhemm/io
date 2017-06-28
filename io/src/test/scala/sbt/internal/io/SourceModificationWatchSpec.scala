@@ -200,6 +200,7 @@ abstract class SourceModificationWatchSpec(getService: => WatchService, pollDela
     val parentDir = dir / "src" / "watchme"
     val subDir  = parentDir / "subdir"
     val service = getService
+    IO.createDirectory(parentDir)
 
     try {
       val initState = emptyState(service, parentDir)
@@ -215,7 +216,33 @@ abstract class SourceModificationWatchSpec(getService: => WatchService, pollDela
       triggered1 shouldBe false
       newState1.count shouldBe 1
     } finally service.close()
+  }
 
+  it should "detect deletion of a directory containing watched files" in IO.withTemporaryDirectory { dir =>
+    val parentDir = dir / "src" / "watchme"
+    val subDir = parentDir / "subdir"
+    val src = subDir / "src.scala"
+    val service = getService
+
+    IO.createDirectory(parentDir)
+
+    try {
+      val initState = emptyState(service, parentDir)
+      val (triggered0, newState0) = watchTest(initState)(pollDelayMs, maxWaitMs) {
+        IO.createDirectory(subDir)
+        IO.touch(src)
+        println("Created " + src)
+      }
+      triggered0 shouldBe true
+      newState0.count shouldBe 2
+
+      val (triggered1, newState1) = watchTest(newState0)(pollDelayMs, maxWaitMs) {
+        IO.delete(subDir)
+        println("Exists? " + src.exists)
+      }
+      triggered1 shouldBe true
+      newState1.count shouldBe 3
+    } finally service.close()
   }
 
   "WatchService.poll" should "throw a `ClosedWatchServiceException` if used after `close`" in {
@@ -254,15 +281,14 @@ abstract class SourceModificationWatchSpec(getService: => WatchService, pollDela
   private def watchTest(base: File)(pollDelayMs: Long, maxWaitMs: Long, expectedTrigger: Boolean = true)(modifier: => Unit): Assertion = {
     val service = getService
     try {
-    val sources: Seq[WatchState.Source] = Seq((base, "*.scala", new SimpleFilter(_.startsWith("."))))
-    val initState = WatchState.empty(service, sources).withCount(1)
+    val initState = emptyState(service, base)
     val (triggered, _) = watchTest(initState)(pollDelayMs, maxWaitMs)(modifier)
       triggered shouldBe expectedTrigger
     } finally service.close()
   }
 
   private def emptyState(service: WatchService, base: File): WatchState = {
-    val sources: Seq[WatchState.Source] = Seq((base, "*.scala", new SimpleFilter(_.startsWith("."))))
+    val sources = Seq(new Source(base, "*.scala", new SimpleFilter(_.startsWith("."))))
     WatchState.empty(service, sources).withCount(1)
   }
 
