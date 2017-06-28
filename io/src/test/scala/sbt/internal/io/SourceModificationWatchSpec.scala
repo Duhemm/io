@@ -3,7 +3,7 @@ package sbt.internal.io
 import java.nio.file.{ ClosedWatchServiceException, Paths }
 import java.util.concurrent.atomic.AtomicBoolean
 
-import org.scalatest.{ FlatSpec, Matchers }
+import org.scalatest.{ Assertion, FlatSpec, Matchers }
 import sbt.io.syntax._
 import sbt.io.{ IO, SimpleFilter, WatchService }
 
@@ -196,6 +196,28 @@ abstract class SourceModificationWatchSpec(getService: => WatchService, pollDela
     }
   }
 
+  it should "ignore creation and then deletion of empty directories" in IO.withTemporaryDirectory { dir =>
+    val parentDir = dir / "src" / "watchme"
+    val subDir  = parentDir / "subdir"
+    val service = getService
+
+    try {
+      val initState = emptyState(service, parentDir)
+      val (triggered0, newState0) = watchTest(initState)(pollDelayMs, maxWaitMs) {
+        IO.createDirectory(subDir)
+      }
+      triggered0 shouldBe false
+      newState0.count shouldBe 1
+
+      val (triggered1, newState1) = watchTest(newState0)(pollDelayMs, maxWaitMs) {
+        IO.delete(subDir)
+      }
+      triggered1 shouldBe false
+      newState1.count shouldBe 1
+    } finally service.close()
+
+  }
+
   "WatchService.poll" should "throw a `ClosedWatchServiceException` if used after `close`" in {
     val service = getService
     service.close()
@@ -214,26 +236,34 @@ abstract class SourceModificationWatchSpec(getService: => WatchService, pollDela
     service.close()
   }
 
-  private def watchTest(base: File)(pollDelayMs: Long, maxWaitMs: Long, expectedTrigger: Boolean = true)(modifier: => Unit) = {
+  private def watchTest(initState: WatchState)(pollDelayMs: Long, maxWaitMs: Long)(modifier: => Unit): (Boolean, WatchState) = {
+    val started = new AtomicBoolean(false)
+    val startTime = System.currentTimeMillis()
+    val modThread = new Thread {
+      override def run(): Unit = {
+        started.set(true)
+        modifier
+      }
+    }
+    SourceModificationWatch.watch(pollDelayMs, initState) {
+      if (!started.get()) modThread.start()
+      System.currentTimeMillis() - startTime > maxWaitMs
+    }
+  }
+
+  private def watchTest(base: File)(pollDelayMs: Long, maxWaitMs: Long, expectedTrigger: Boolean = true)(modifier: => Unit): Assertion = {
     val service = getService
     try {
-      val sources: Seq[WatchState.Source] = Seq((base, "*.scala", new SimpleFilter(_.startsWith("."))))
-      // Set count to 1, because first run always immediately triggers.
-      val initState = WatchState.empty(service, sources).withCount(1)
-      val started = new AtomicBoolean(false)
-      val startTime = System.currentTimeMillis()
-      val modThread = new Thread {
-        override def run(): Unit = {
-          started.set(true)
-          modifier
-        }
-      }
-      val (triggered, _) = SourceModificationWatch.watch(pollDelayMs, initState) {
-        if (!started.get()) modThread.start()
-        System.currentTimeMillis() - startTime > maxWaitMs
-      }
+    val sources: Seq[WatchState.Source] = Seq((base, "*.scala", new SimpleFilter(_.startsWith("."))))
+    val initState = WatchState.empty(service, sources).withCount(1)
+    val (triggered, _) = watchTest(initState)(pollDelayMs, maxWaitMs)(modifier)
       triggered shouldBe expectedTrigger
     } finally service.close()
+  }
+
+  private def emptyState(service: WatchService, base: File): WatchState = {
+    val sources: Seq[WatchState.Source] = Seq((base, "*.scala", new SimpleFilter(_.startsWith("."))))
+    WatchState.empty(service, sources).withCount(1)
   }
 
 }

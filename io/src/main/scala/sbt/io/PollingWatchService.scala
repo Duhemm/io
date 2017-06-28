@@ -7,6 +7,7 @@ import java.util.{List => JList}
 import sbt.io.syntax._
 import scala.collection.mutable
 
+/** A `WatchService` that polls the filesystem every `delayMs` milliseconds. */
 class PollingWatchService(delayMs: Long) extends WatchService {
   private var closed: Boolean       = false
   private val thread: PollingThread = new PollingThread(delayMs)

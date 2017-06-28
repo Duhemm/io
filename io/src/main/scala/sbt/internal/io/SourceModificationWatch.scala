@@ -21,28 +21,37 @@ private[sbt] object SourceModificationWatch {
   def watch(delayMillis: Long, state: WatchState)(terminationCondition: => Boolean): (Boolean, WatchState) = {
     if (state.count == 0) (true, state.withCount(1))
     else {
+      def include(p: Path): Boolean = {
+        !Files.isDirectory(p) &&
+          state.sources.exists {
+            case (base, include, exclude) =>
+              p.startsWith(base.toPath) && include.accept(p.toFile) && !exclude.accept(p.toFile)
+          }
+      }
       val events =
-        state.next(delayMillis).map(expandEvent).filter {
-          case (p, ENTRY_CREATE) => !Files.isDirectory(p)
-          case (p, ENTRY_DELETE) => state.sources.exists(_._2.accept(p.toFile))
-          case (p, _)            => state.registered.contains(p)
-        }
-
+        state.next(delayMillis).map(expandEvent).filter(e => include(e._1))
       val newFiles = WatchState.getPaths(state.sources).toSet
       val previousFiles = state.registered.keySet
       val hasModFiles = events.exists { case (path, _) => newFiles.contains(path) && !Files.isDirectory(path) }
+      val rawCreatedFiles = newFiles -- previousFiles
+      val rawDeletedFiles = previousFiles -- newFiles
+      val createdFiles = rawCreatedFiles.filter(include)
+      val deletedFiles = rawDeletedFiles.filter(include)
 
-      if (events.isEmpty || (previousFiles == newFiles && !hasModFiles)) {
+      if (rawCreatedFiles.isEmpty && rawDeletedFiles.isEmpty && !hasModFiles) {
         if (terminationCondition) {
           (false, state)
         } else {
           watch(delayMillis, state)(terminationCondition)
         }
       } else {
-        val createdFiles  = newFiles -- previousFiles
-        val deletedFiles  = previousFiles -- newFiles
-        val newState = state.withCount(state.count + 1) ++ createdFiles -- deletedFiles
-        (true, newState)
+        val newState = state ++ rawCreatedFiles -- rawDeletedFiles
+
+        if (createdFiles.isEmpty && deletedFiles.isEmpty && !hasModFiles) {
+          watch(delayMillis, newState)(terminationCondition)
+        } else {
+          (true, newState.withCount(state.count + 1))
+        }
       }
     }
   }
